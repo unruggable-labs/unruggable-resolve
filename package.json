@@ -1,0 +1,21 @@
+{
+	"name": "ur-poc",
+	"type": "module",
+	"scripts": {
+		"fetch": "bun test/fetch.ts",
+		"test": "bun test --timeout 15000",
+		"test-UR": "bun test test/UR.test.ts --timeout 15000",
+		"test-URAlwaysBatched": "bun test test/URAlwaysBatched.test.ts --timeout 15000"
+	},
+	"dependencies": {
+		"@adraffy/blocksmith": "^0.0.43",
+		"@resolverworks/ezccip": "^0.0.22",
+		"ethers": "^6.13.4"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	}
+}
