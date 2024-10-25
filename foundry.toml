@@ -1,16 +1,20 @@
-[profile.default]
+# https://book.getfoundry.sh/reference/config/overview
 
+[profile.default]
 src = "contracts"
 libs = ["lib"]
+solc_version = "0.8.27"
+optimizer = true
 remappings = [
 	'@openzeppelin/contracts=lib/openzeppelin-contracts/contracts/',
 	'@ensdomains/ens-contracts=lib/ens-contracts/',
 	'@ensdomains/buffer=lib/buffer'
 ]
-
-solc_version = "0.8.27"
-optimizer = true
-
 # forge install ensdomains/ens-contracts
 # forge install OpenZeppelin/openzeppelin-contracts
 # forge install foundry-rs/forge-std
+
+[profile.dist]
+test = "contracts" # disables tests
+out = "artifacts"
+cache = false

@@ -13,8 +13,8 @@ describe("UR", async () => {
 	const UR = await foundry.deploy({
 		file: "UR",
 		args: [
-			"0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-			["https://ccip-v2.ens.xyz"],
+			"0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e", // ens registry
+			["https://ccip-v2.ens.xyz"], // ens batched gateway service
 		],
 	});
 	const resolve = createResolve(UR);
