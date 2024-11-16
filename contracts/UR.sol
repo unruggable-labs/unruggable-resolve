@@ -5,9 +5,10 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {IExtendedResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IExtendedResolver.sol";
 import {BytesUtils} from "@ensdomains/ens-contracts/contracts/utils/BytesUtils.sol";
-import {OffchainLookup} from "../CCIPReadProtocol.sol";
+import {OffchainLookup} from "./CCIPReadProtocol.sol";
 import {IBatchedGateway, BatchedGatewayQuery} from "./IBatchedGateway.sol";
 import {IResolveMulticall} from "./IResolveMulticall.sol";
+import {ENSIP10, Lookup} from "./ENSIP10.sol";
 
 uint256 constant ERROR_BIT = 1 << 0; // resolution failed
 uint256 constant OFFCHAIN_BIT = 1 << 1; // reverted OffchainLookup
@@ -36,9 +37,10 @@ contract UR {
         bytes[] memory calls,
         string[] memory batchedGateways
     ) external view returns (Lookup memory lookup, Response[] memory res) {
-        lookup = lookupResolver(name); // do ensip-10
-        res = new Response[](calls.length); // create result storage
-        if (batchedGateways.length == 0) batchedGateways = _batchedGateways; // use default
+        lookup = ENSIP10.lookupResolver(_ens, name); // do ensip-10
+		res = new Response[](calls.length); // create result storage
+		if (!lookup.ok) revert Unreachable(name);
+		if (batchedGateways.length == 0) batchedGateways = _batchedGateways; // use default
         bytes[] memory offchainCalls = new bytes[](calls.length);
         uint256 offchain; // count how many offchain
         for (uint256 i; i < res.length; i++) {
@@ -89,39 +91,6 @@ contract UR {
         }
     }
 
-    struct Lookup {
-        uint256 offset; // byte offset into name
-        bytes32 basenode;
-        address resolver;
-        bool extended; // if true, use resolve()
-    }
-
-    function lookupResolver(
-        bytes memory name
-    ) public view returns (Lookup memory lookup) {
-        // https://docs.ens.domains/ensip/10
-        unchecked {
-            while (true) {
-                lookup.basenode = BytesUtils.namehash(name, lookup.offset);
-                lookup.resolver = _ens.resolver(lookup.basenode);
-                if (lookup.resolver != address(0)) break;
-                uint256 len = uint8(name[lookup.offset]);
-                if (len == 0) revert Unreachable(name);
-                lookup.offset += 1 + len;
-            }
-            if (
-                _supportsInterface(
-                    lookup.resolver,
-                    type(IExtendedResolver).interfaceId
-                )
-            ) {
-                lookup.extended = true;
-            } else if (lookup.offset != 0) {
-                revert Unreachable(name);
-            }
-        }
-    }
-
     // batched gateway
 
     function _revertBatchedGateway(
@@ -143,7 +112,7 @@ contract UR {
                 ,
 
             ) = abi.decode(
-                    _slice(res[i].data, 4),
+                    _dropSelector(res[i].data),
                     (address, string[], bytes, bytes4, bytes)
                 );
             queries[missing++] = BatchedGatewayQuery(sender, urls, request);
@@ -190,7 +159,7 @@ contract UR {
                     bytes4 selector,
                     bytes memory carry
                 ) = abi.decode(
-                        _slice(res[i].data, 4),
+                        _dropSelector(res[i].data),
                         (address, string[], bytes, bytes4, bytes)
                     );
 
@@ -251,26 +220,7 @@ contract UR {
         if (expected != answers.length) revert LengthMismatch();
     }
 
-    function _supportsInterface(
-        address a,
-        bytes4 selector
-    ) internal view returns (bool ret) {
-        // https://eips.ethereum.org/EIPS/eip-165
-        try IERC165(a).supportsInterface{gas: 30000}(selector) returns (
-            bool quacks
-        ) {
-            ret = quacks;
-        } catch {}
-    }
-
-    function _slice(
-        bytes memory src,
-        uint256 skip
-    ) internal pure returns (bytes memory ret) {
-        ret = abi.encodePacked(src);
-        assembly {
-            mstore(add(ret, skip), sub(mload(ret), skip))
-            ret := add(ret, skip)
-        }
+    function _dropSelector(bytes memory v) internal pure returns (bytes memory ret) {
+		return BytesUtils.substring(v, 4, v.length - 4);
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ENSDNSCoder} from "../contracts/utils/ENSDNSCoder.sol";
+import {ENSDNSCoder} from "../contracts/ENSDNSCoder.sol";
 import "forge-std/Test.sol";
 
 contract TestENSDNSCoder is Test {

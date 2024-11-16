@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+error InvalidName();
+error LabelTooLong();
+
 library ENSDNSCoder {
     // WARNING: a label that contains a stop (.) will not round-trip
     // dnsDecode("3a.b0) => revert InvalidName
@@ -9,9 +12,6 @@ library ENSDNSCoder {
     // dnsEncode("a.b") = "1a1b0"
     // dnsDecode("1a1b0") = "a.b"
     // only use dnsDecodeUnsafe() if you know the label was encoded correctly
-
-    error InvalidName();
-    error LabelTooLong();
 
     // [ens]  "aaa.bb.c"
     // [dns] "3aaa2bb1c0"
