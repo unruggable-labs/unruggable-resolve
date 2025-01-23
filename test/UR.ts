@@ -28,13 +28,15 @@ type BatchedHTTPError = [code: bigint, message: string];
 export type ENSRecord =
 	| ["addr", arg?: BigNumberish]
 	| ["text", arg: string]
-	| ["contenthash" | "pubkey" | "name" | "dne"];
+	| ["contenthash" | "pubkey" | "name" | "dne"]
 
-type URLookup = {
+export type URLookup = {
+	dns: string;
 	offset: bigint;
 	basenode: string;
 	resolver: string;
 	extended: boolean;
+	ok: boolean;
 };
 type URResponse = { bits: bigint; data: string };
 type URABIResult = [URLookup, URResponse[]];

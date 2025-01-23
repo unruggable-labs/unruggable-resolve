@@ -1,5 +1,8 @@
 node_modules/
 cache/
 out/
+junk/
 artifacts/
 *.tgz
+.env
+.DS_Store
