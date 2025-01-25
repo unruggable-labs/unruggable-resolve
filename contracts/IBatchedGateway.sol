@@ -8,7 +8,8 @@ struct BatchedGatewayQuery {
 }
 
 interface IBatchedGateway {
-    function query(
-        BatchedGatewayQuery[] memory
-    ) external view returns (bool[] memory failures, bytes[] memory responses);
+    function query(BatchedGatewayQuery[] memory)
+        external
+        view
+        returns (bool[] memory failures, bytes[] memory responses);
 }

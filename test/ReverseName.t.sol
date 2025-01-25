@@ -20,7 +20,7 @@ contract TestReverseName is Test {
     }
     function test_chain8543_reverse() external pure {
         assertEq(
-            "b8c2c29ee19d8307cb7255e1cd9cbde883a267d5.2147492191.reverse",
+            "b8c2c29ee19d8307cb7255e1cd9cbde883a267d5.8000215f.reverse",
             ReverseName.from(0xb8c2C29ee19D8307cb7255e1Cd9CbDE883A267d5, 8543)
         );
     }

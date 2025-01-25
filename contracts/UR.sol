@@ -19,13 +19,13 @@ contract UR is IUR, IERC165 {
         _batchedGateways = batchedGateways;
     }
 
-	function getBatchedGateways() external view returns (string[] memory) {
-		return _batchedGateways;
-	}
+    function gateways() external view returns (string[] memory) {
+        return _batchedGateways;
+    }
 
-	function getRegistry() external view returns (address) {
-		return address(_ens);
-	}
+    function registry() external view returns (address) {
+        return address(_ens);
+    }
 
     function supportsInterface(bytes4 x) external pure returns (bool) {
         return type(IERC165).interfaceId == x || type(IUR).interfaceId == x;
@@ -34,6 +34,7 @@ contract UR is IUR, IERC165 {
     function lookupName(bytes memory dns) public view returns (Lookup memory lookup) {
         // https://docs.ens.domains/ensip/10
         lookup.dns = dns;
+        lookup.node = BytesUtils.namehash(dns, 0);
         while (true) {
             lookup.basenode = BytesUtils.namehash(dns, lookup.offset);
             lookup.resolver = _ens.resolver(lookup.basenode);
@@ -62,7 +63,8 @@ contract UR is IUR, IERC165 {
         bytes[] memory offchainCalls = new bytes[](calls.length);
         uint256 offchain; // count how many offchain
         for (uint256 i; i < res.length; i++) {
-            bytes memory call = calls[i];
+            bytes memory call = _replaceNode(calls[i], lookup.node);
+            res[i].call = call;
             if (lookup.extended) call = abi.encodeCall(IExtendedResolver.resolve, (name, call)); // wrap
             (bool ok, bytes memory v) = lookup.resolver.staticcall(call); // call it
             if (ok && lookup.extended) v = abi.decode(v, (bytes)); // unwrap
@@ -193,5 +195,13 @@ contract UR is IUR, IERC165 {
 
     function _dropSelector(bytes memory v) internal pure returns (bytes memory ret) {
         return BytesUtils.substring(v, 4, v.length - 4);
+    }
+
+    function _replaceNode(bytes memory v, bytes32 node) internal pure returns (bytes memory) {
+        assembly {
+            let p := add(v, 36)
+            if iszero(mload(p)) { mstore(p, node) }
+        }
+		return v;
     }
 }

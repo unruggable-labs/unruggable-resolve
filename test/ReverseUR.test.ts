@@ -39,7 +39,6 @@ describe("ReverseUR", async () => {
 		DefaultResolver.target
 	);
 
-
 	const BASE = 8453;
 	const BaseResolver = await foundry.deploy({ file: "ExtendedNameResolver" });
 	await overrideResolver(

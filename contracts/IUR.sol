@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-struct Response {
-    uint256 bits;
-    bytes data;
-}
-
 struct Lookup {
     bytes dns;
-    uint256 offset; // byte offset into dns
+    uint256 offset; // byte offset into dns for basename
+    bytes32 node;
     bytes32 basenode;
     address resolver;
-    bool extended; // if true, use resolve()
+    bool extended;
     bool ok;
+}
+
+struct Response {
+    uint256 bits; // ResponseBits
+    bytes call; // record calldata
+    bytes data; // answer (or error)
 }
 
 library ResponseBits {
@@ -22,12 +24,11 @@ library ResponseBits {
     uint256 constant RESOLVED = 1 << 3; // resolution finished (internal flag)
 }
 
-error Unreachable(bytes name);
 error LengthMismatch();
 
 interface IUR {
     function lookupName(bytes memory dns) external view returns (Lookup memory lookup);
-    function resolve(bytes memory name, bytes[] memory calls, string[] memory batchedGateways)
+    function resolve(bytes memory dns, bytes[] memory calls, string[] memory batchedGateways)
         external
         view
         returns (Lookup memory lookup, Response[] memory res);

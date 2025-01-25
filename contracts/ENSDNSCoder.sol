@@ -44,9 +44,8 @@ library ENSDNSCoder {
         }
     }
 
-    function dnsDecodeUnsafe(
-        bytes memory dns
-    ) internal pure returns (string memory ens) {
+    /*
+    function dnsDecodeUnsafe(bytes memory dns) internal pure returns (string memory ens) {
         unchecked {
             uint256 n = dns.length;
             if (n == 1 && dns[0] == 0) return ""; // only valid answer is root
@@ -93,10 +92,9 @@ library ENSDNSCoder {
             } // fix mangled length
         }
     }
+    */
 
-    function dnsEncode(
-        string memory ens
-    ) internal pure returns (bytes memory dns) {
+    function dnsEncode(string memory ens) internal pure returns (bytes memory dns) {
         unchecked {
             uint256 n = bytes(ens).length;
             if (n == 0) return hex"00"; // root
@@ -108,18 +106,12 @@ library ENSDNSCoder {
                 e := add(dns, 32)
                 r := e // remember start
                 ens := add(ens, 32)
-                for {
-                    let i := 0
-                } lt(i, n) {
-                    i := add(i, 1)
-                } {
+                for { let i := 0 } lt(i, n) { i := add(i, 1) } {
                     let b := shr(248, mload(add(ens, i))) // read byte
                     if eq(b, 46) {
                         // found "."
                         w := sub(e, r)
-                        if or(iszero(w), gt(w, 255)) {
-                            break
-                        } // something wrong
+                        if or(iszero(w), gt(w, 255)) { break } // something wrong
                         mstore8(r, w)
                         r := add(e, 1) // update start
                     }

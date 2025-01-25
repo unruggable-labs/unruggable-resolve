@@ -33,6 +33,7 @@ export type ENSRecord =
 export type URLookup = {
 	dns: string;
 	offset: bigint;
+	node: string;
 	basenode: string;
 	resolver: string;
 	extended: boolean;
@@ -74,7 +75,7 @@ export function createResolve(UR: Contract) {
 		const dnsname = dnsEncode(name, 255);
 		const node = namehash(name);
 		const [
-			{ basenode, resolver, extended, offset: bigOffset },
+			{ basenode, resolver, extended, offset: bigOffset, ok },
 			answers,
 		]: URABIResult = await UR.resolve(
 			dnsname,
@@ -98,6 +99,7 @@ export function createResolve(UR: Contract) {
 			offset,
 			resolver,
 			extended,
+			ok,
 			records: answers.map(({ bits, data }, i) => {
 				const record = records[i];
 				const error = !!(bits & 1n);

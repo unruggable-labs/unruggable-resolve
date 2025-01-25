@@ -41,7 +41,9 @@ export function testUR(resolve: Awaited<ReturnType<typeof createResolve>>) {
 				["addr", 60],
 				["text", "avatar"],
 			])
-		).rejects.toThrow(/Unreachable/);
+		).resolves.toMatchObject({
+			ok: false
+		});
 	});
 
 	test("Onchain PRv2: nick.eth", () => {
