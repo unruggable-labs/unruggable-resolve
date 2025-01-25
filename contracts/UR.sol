@@ -5,7 +5,7 @@ import {ERC165, IERC165} from "./ERC165.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {IExtendedResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IExtendedResolver.sol";
 import {BytesUtils} from "@ensdomains/ens-contracts/contracts/utils/BytesUtils.sol";
-import {OffchainLookup} from "./CCIPReadProtocol.sol";
+import {OffchainLookup, OffchainLookupTuple, CCIPReadProtocol} from "./CCIPReadProtocol.sol";
 import {IBatchedGateway, BatchedGatewayQuery} from "./IBatchedGateway.sol";
 import {IResolveMulticall} from "./IResolveMulticall.sol";
 import {IUR, Lookup, Response, ResponseBits, LengthMismatch} from "./IUR.sol";
@@ -63,7 +63,7 @@ contract UR is IUR, IERC165 {
         bytes[] memory offchainCalls = new bytes[](calls.length);
         uint256 offchain; // count how many offchain
         for (uint256 i; i < res.length; i++) {
-            bytes memory call = _replaceNode(calls[i], lookup.node);
+            bytes memory call = _injectNode(calls[i], lookup.node);
             res[i].call = call;
             if (lookup.extended) call = abi.encodeCall(IExtendedResolver.resolve, (name, call)); // wrap
             (bool ok, bytes memory v) = lookup.resolver.staticcall(call); // call it
@@ -109,10 +109,10 @@ contract UR is IUR, IERC165 {
         BatchedGatewayQuery[] memory queries = new BatchedGatewayQuery[](res.length);
         uint256 missing;
         for (uint256 i; i < res.length; i++) {
-            if ((res[i].bits & ResponseBits.RESOLVED) != 0) continue;
-            (address sender, string[] memory urls, bytes memory request,,) =
-                abi.decode(_dropSelector(res[i].data), (address, string[], bytes, bytes4, bytes));
-            queries[missing++] = BatchedGatewayQuery(sender, urls, request);
+            if ((res[i].bits & ResponseBits.RESOLVED) == 0) {
+                OffchainLookupTuple memory x = CCIPReadProtocol.decode(res[i].data);
+                queries[missing++] = BatchedGatewayQuery(x.sender, x.gateways, x.request);
+            }
         }
         assembly {
             mstore(queries, missing)
@@ -144,12 +144,10 @@ contract UR is IUR, IERC165 {
                 res[i].bits |= ResponseBits.ERROR | ResponseBits.RESOLVED;
                 res[i].data = responses[expected];
             } else {
-                (address sender,, bytes memory request, bytes4 selector, bytes memory carry) =
-                    abi.decode(_dropSelector(res[i].data), (address, string[], bytes, bytes4, bytes));
-
+                OffchainLookupTuple memory x = CCIPReadProtocol.decode(res[i].data);
                 (bool ok, bytes memory v) =
-                    sender.staticcall(abi.encodeWithSelector(selector, responses[expected], carry));
-                if (ok && bytes4(request) == IExtendedResolver.resolve.selector) {
+                    x.sender.staticcall(abi.encodeWithSelector(x.selector, responses[expected], x.carry));
+                if (ok && bytes4(x.request) == IExtendedResolver.resolve.selector) {
                     v = abi.decode(v, (bytes)); // unwrap resolve()
                 }
                 res[i].data = v;
@@ -193,15 +191,17 @@ contract UR is IUR, IERC165 {
         if (expected != m.length) revert LengthMismatch();
     }
 
-    function _dropSelector(bytes memory v) internal pure returns (bytes memory ret) {
-        return BytesUtils.substring(v, 4, v.length - 4);
-    }
-
-    function _replaceNode(bytes memory v, bytes32 node) internal pure returns (bytes memory) {
+    function _injectNode(bytes memory v, bytes32 node) internal pure returns (bytes memory) {
+		bool x;
         assembly {
-            let p := add(v, 36)
-            if iszero(mload(p)) { mstore(p, node) }
-        }
+			x := iszero(mload(add(v, 36)))
+		}
+		if (x) {
+			v = abi.encodePacked(v);
+			assembly {
+				mstore(add(v, 36), node)
+			}
+		}
 		return v;
     }
 }

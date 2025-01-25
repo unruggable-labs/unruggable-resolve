@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {OffchainLookup} from "./CCIPReadProtocol.sol";
+import {OffchainLookup, OffchainLookupTuple, CCIPReadProtocol} from "./CCIPReadProtocol.sol";
 
 struct Carry {
     address target;
@@ -9,14 +9,6 @@ struct Carry {
     bytes carry;
     bytes4 myCallback;
     bytes myCarry;
-}
-
-struct OffchainLookupTuple {
-    address sender;
-    string[] gateways;
-    bytes request;
-    bytes4 selector;
-    bytes carry;
 }
 
 contract CCIPReader {
@@ -28,13 +20,7 @@ contract CCIPReader {
         bool ok;
         (ok, v) = target.staticcall(call);
         if (!ok && bytes4(v) == OffchainLookup.selector) {
-            assembly {
-                mstore(add(v, 4), sub(mload(v), 4))
-                v := add(v, 4)
-            }
-            OffchainLookupTuple memory x;
-            (x.sender, x.gateways, x.request, x.selector, x.carry) =
-                abi.decode(v, (address, string[], bytes, bytes4, bytes));
+            OffchainLookupTuple memory x = CCIPReadProtocol.decode(v);
             if (x.sender == target) {
                 revert OffchainLookup(
                     address(this),
