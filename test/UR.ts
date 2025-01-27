@@ -37,7 +37,6 @@ export type URLookup = {
 	basenode: string;
 	resolver: string;
 	extended: boolean;
-	ok: boolean;
 };
 type URResponse = { bits: bigint; data: string };
 type URABIResult = [URLookup, URResponse[]];
@@ -75,7 +74,7 @@ export function createResolve(UR: Contract) {
 		const dnsname = dnsEncode(name, 255);
 		const node = namehash(name);
 		const [
-			{ basenode, resolver, extended, offset: bigOffset, ok },
+			{ basenode, resolver, extended, offset: bigOffset },
 			answers,
 		]: URABIResult = await UR.resolve(
 			dnsname,
@@ -99,7 +98,6 @@ export function createResolve(UR: Contract) {
 			offset,
 			resolver,
 			extended,
-			ok,
 			records: answers.map(({ bits, data }, i) => {
 				const record = records[i];
 				const error = !!(bits & 1n);

@@ -58,12 +58,11 @@ describe("ReverseUR", async () => {
 		).resolves.toMatchObject({
 			rev: {
 				dns: dnsEncode(
-					"51050ec063d393217b436747617ad1c2285aeeee.default.reverse",
-					255
+					"51050ec063d393217b436747617ad1c2285aeeee.default.reverse"
 				),
 			},
 			fwd: {
-				dns: dnsEncode("raffy.eth", 255),
+				dns: dnsEncode("raffy.eth"),
 			},
 			answer: address.toLowerCase(),
 		});

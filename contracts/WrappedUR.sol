@@ -13,7 +13,7 @@ contract WrappedUR is URCaller {
         returns (Lookup memory lookup, Response[] memory res)
     {
         lookup = ur.lookupName(dns);
-        if (!lookup.ok) return (lookup, res);
+        if (lookup.resolver == address(0)) return (lookup, res);
         // extra logic goes here
         bytes memory v = callResolve(dns, calls, gateways, this.resolveCallback.selector, "");
         assembly {

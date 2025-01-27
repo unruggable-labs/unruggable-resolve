@@ -45,9 +45,8 @@ contract UR is IUR, IERC165 {
         }
         if (ERC165.supportsInterface(lookup.resolver, type(IExtendedResolver).interfaceId)) {
             lookup.extended = true;
-            lookup.ok = true;
-        } else if (lookup.offset == 0) {
-            lookup.ok = true;
+        } else if (lookup.offset != 0) {
+            lookup.resolver = address(0);
         }
     }
 
@@ -57,24 +56,25 @@ contract UR is IUR, IERC165 {
         returns (Lookup memory lookup, Response[] memory res)
     {
         lookup = lookupName(name);
-        if (!lookup.ok) return (lookup, res);
+        if (lookup.resolver == address(0)) return (lookup, res);
         res = new Response[](calls.length); // create result storage
         if (batchedGateways.length == 0) batchedGateways = _batchedGateways; // use default
         bytes[] memory offchainCalls = new bytes[](calls.length);
         uint256 offchain; // count how many offchain
         for (uint256 i; i < res.length; i++) {
+            Response memory r = res[i];
             bytes memory call = _injectNode(calls[i], lookup.node);
-            res[i].call = call;
+            r.call = call;
             if (lookup.extended) call = abi.encodeCall(IExtendedResolver.resolve, (name, call)); // wrap
             (bool ok, bytes memory v) = lookup.resolver.staticcall(call); // call it
             if (ok && lookup.extended) v = abi.decode(v, (bytes)); // unwrap
-            res[i].data = v;
+            r.data = v;
             if (!ok && bytes4(v) == OffchainLookup.selector) {
-                res[i].bits |= ResponseBits.OFFCHAIN | ResponseBits.BATCHED;
+                r.bits |= ResponseBits.OFFCHAIN | ResponseBits.BATCHED;
                 offchainCalls[offchain++] = calls[i];
             } else {
-                if (!ok) res[i].bits |= ResponseBits.ERROR;
-                res[i].bits |= ResponseBits.RESOLVED;
+                if (!ok) r.bits |= ResponseBits.ERROR;
+                r.bits |= ResponseBits.RESOLVED;
             }
         }
         if (offchain > 1) {
@@ -109,8 +109,9 @@ contract UR is IUR, IERC165 {
         BatchedGatewayQuery[] memory queries = new BatchedGatewayQuery[](res.length);
         uint256 missing;
         for (uint256 i; i < res.length; i++) {
-            if ((res[i].bits & ResponseBits.RESOLVED) == 0) {
-                OffchainLookupTuple memory x = CCIPReadProtocol.decode(res[i].data);
+            Response memory r = res[i];
+            if ((r.bits & ResponseBits.RESOLVED) == 0) {
+                OffchainLookupTuple memory x = CCIPReadProtocol.decode(r.data);
                 queries[missing++] = BatchedGatewayQuery(x.sender, x.gateways, x.request);
             }
         }
@@ -139,23 +140,24 @@ contract UR is IUR, IERC165 {
         bool again;
         uint256 expected;
         for (uint256 i; i < res.length; i++) {
-            if ((res[i].bits & ResponseBits.RESOLVED) != 0) continue;
+            Response memory r = res[i];
+            if ((r.bits & ResponseBits.RESOLVED) != 0) continue;
             if (failures[expected]) {
-                res[i].bits |= ResponseBits.ERROR | ResponseBits.RESOLVED;
-                res[i].data = responses[expected];
+                r.bits |= ResponseBits.ERROR | ResponseBits.RESOLVED;
+                r.data = responses[expected];
             } else {
-                OffchainLookupTuple memory x = CCIPReadProtocol.decode(res[i].data);
+                OffchainLookupTuple memory x = CCIPReadProtocol.decode(r.data);
                 (bool ok, bytes memory v) =
                     x.sender.staticcall(abi.encodeWithSelector(x.selector, responses[expected], x.carry));
                 if (ok && bytes4(x.request) == IExtendedResolver.resolve.selector) {
                     v = abi.decode(v, (bytes)); // unwrap resolve()
                 }
-                res[i].data = v;
+                r.data = v;
                 if (!ok && bytes4(v) == OffchainLookup.selector) {
                     again = true;
                 } else {
-                    if (!ok) res[i].bits |= ResponseBits.ERROR;
-                    res[i].bits |= ResponseBits.RESOLVED;
+                    if (!ok) r.bits |= ResponseBits.ERROR;
+                    r.bits |= ResponseBits.RESOLVED;
                 }
             }
             expected++;
@@ -181,27 +183,28 @@ contract UR is IUR, IERC165 {
         bytes[] memory m = abi.decode(encoded, (bytes[]));
         uint256 expected;
         for (uint256 i; i < res.length; i++) {
-            if ((res[i].bits & ResponseBits.RESOLVED) == 0) {
+            Response memory r = res[i];
+            if ((r.bits & ResponseBits.RESOLVED) == 0) {
                 bytes memory v = m[expected++];
-                res[i].data = v;
-                if ((v.length & 31) != 0) res[i].bits |= ResponseBits.ERROR;
-                res[i].bits |= ResponseBits.RESOLVED;
+                r.data = v;
+                if ((v.length & 31) != 0) r.bits |= ResponseBits.ERROR;
+                r.bits |= ResponseBits.RESOLVED;
             }
         }
         if (expected != m.length) revert LengthMismatch();
     }
 
     function _injectNode(bytes memory v, bytes32 node) internal pure returns (bytes memory) {
-		bool x;
+        bool x;
         assembly {
-			x := iszero(mload(add(v, 36)))
-		}
-		if (x) {
-			v = abi.encodePacked(v);
-			assembly {
-				mstore(add(v, 36), node)
-			}
-		}
-		return v;
+            x := iszero(mload(add(v, 36)))
+        }
+        if (x) {
+            v = abi.encodePacked(v);
+            assembly {
+                mstore(add(v, 36), node)
+            }
+        }
+        return v;
     }
 }

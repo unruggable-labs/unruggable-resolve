@@ -4,11 +4,10 @@ pragma solidity ^0.8.0;
 struct Lookup {
     bytes dns;
     uint256 offset; // byte offset into dns for basename
-    bytes32 node;
-    bytes32 basenode;
-    address resolver;
-    bool extended;
-    bool ok;
+    bytes32 node; // namehash(dns)
+    bytes32 basenode; // namehash(dns.slice(offset))
+    address resolver; // resolver(basenode), null if invalid
+    bool extended; // IExtendedResolver
 }
 
 struct Response {

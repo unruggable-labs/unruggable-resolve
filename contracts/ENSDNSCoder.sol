@@ -1,4 +1,3 @@
-/// @author raffy.eth
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -109,10 +108,9 @@ library ENSDNSCoder {
                 for { let i := 0 } lt(i, n) { i := add(i, 1) } {
                     let b := shr(248, mload(add(ens, i))) // read byte
                     if eq(b, 46) {
-                        // found "."
-                        w := sub(e, r)
+                        w := sub(e, r) // length of label
                         if or(iszero(w), gt(w, 255)) { break } // something wrong
-                        mstore8(r, w)
+                        mstore8(r, w) // store length at start
                         r := add(e, 1) // update start
                     }
                     {
@@ -121,12 +119,12 @@ library ENSDNSCoder {
                     }
                 }
             }
-            w = e - r;
+            w = e - r; // length of last label
             if (w == 0) revert InvalidName(); // empty label
             if (w > 255) revert LabelTooLong();
             assembly {
-                mstore8(r, w)
-            } // store final length
+                mstore8(r, w) // store length
+            }
         }
     }
 }

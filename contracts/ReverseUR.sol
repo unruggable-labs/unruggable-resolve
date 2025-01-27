@@ -61,7 +61,7 @@ contract ReverseUR is URCaller {
     {
         Reverse1 memory state = abi.decode(carry, (Reverse1));
         bytes memory primary;
-        if (lookup.ok && (res[0].bits & ResponseBits.ERROR) == 0) {
+        if (lookup.resolver != address(0) && (res[0].bits & ResponseBits.ERROR) == 0) {
             primary = SafeDecoder.decodeBytes(res[0].data);
         }
         if (primary.length == 0) {
@@ -107,7 +107,7 @@ contract ReverseUR is URCaller {
         Reverse2 memory state = abi.decode(carry, (Reverse2));
         rev = state.rev;
         fwd = lookup;
-        if (fwd.ok) {
+        if (fwd.resolver != address(0)) {
             for (uint256 i; i < res.length; i++) {
                 Response memory r = res[i];
                 if ((r.bits & ResponseBits.ERROR) == 0) {
@@ -125,5 +125,4 @@ contract ReverseUR is URCaller {
         return coinType == COIN_TYPE_ETH
             || (uint32(coinType) == coinType && (coinType & EVM_BIT) != 0 && coinType != EVM_BIT);
     }
-
 }

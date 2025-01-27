@@ -26,7 +26,7 @@ contract HumanUR is URCaller {
         returns (Lookup memory lookup, string[] memory texts, bytes[] memory addrs, bytes memory contenthash)
     {
         lookup = ur.lookupName(ENSDNSCoder.dnsEncode(name));
-        if (!lookup.ok) return (lookup, texts, addrs, contenthash);
+        if (lookup.resolver == address(0)) return (lookup, texts, addrs, contenthash);
         bytes[] memory calls = new bytes[](keys.length + coins.length + (useContenthash ? 1 : 0));
         uint256 pos;
         for (uint256 i; i < keys.length; i++) {
