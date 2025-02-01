@@ -1,9 +1,7 @@
 import type { Foundry } from "@adraffy/blocksmith";
 import type { createResolve } from "./UR.js";
 import { test, expect } from "bun:test";
-import { solidityPackedKeccak256 } from "ethers";
-
-export const ENS_REGISTRY = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+import { ENS_REGISTRY } from "./ens.js";
 
 export function deployUR(foundry: Foundry) {
 	return foundry.deploy({
@@ -13,20 +11,6 @@ export function deployUR(foundry: Foundry) {
 			["https://ccip-v2.ens.xyz"], // ens batched gateway service
 		],
 	});
-}
-
-export async function overrideResolver(
-	foundry: Foundry,
-	node: string,
-	address: string
-) {
-	// https://github.com/foundry-rs/foundry/issues/9743
-	const slot = BigInt(
-		solidityPackedKeccak256(["bytes32", "uint256"], [node, 0n])
-	);
-	const prev = BigInt(await foundry.provider.getStorage(ENS_REGISTRY, slot));
-	await foundry.setStorageValue(ENS_REGISTRY, slot, prev || 0x1);
-	await foundry.setStorageValue(ENS_REGISTRY, slot + 1n, address);
 }
 
 export function testUR(resolve: Awaited<ReturnType<typeof createResolve>>) {

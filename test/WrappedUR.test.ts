@@ -7,7 +7,7 @@ import { describe } from "./describe-fix.js";
 describe("WrappedUR", async () => {
 	const foundry = await Foundry.launch({
 		fork: process.env.PROVIDER,
-		infoLog: true,
+		infoLog: false,
 	});
 	afterAll(foundry.shutdown);
 	const UR = await deployUR(foundry);

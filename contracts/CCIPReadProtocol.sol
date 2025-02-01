@@ -14,9 +14,9 @@ struct OffchainLookupTuple {
 
 library CCIPReadProtocol {
     function decode(bytes memory v) internal pure returns (OffchainLookupTuple memory x) {
-        v = abi.encodePacked(v);
+        v = abi.encodePacked(v); // make a copy
         assembly {
-            mstore(add(v, 4), sub(mload(v), 4))
+            mstore(add(v, 4), sub(mload(v), 4)) // drop selector
             v := add(v, 4)
         }
         (x.sender, x.gateways, x.request, x.selector, x.carry) =

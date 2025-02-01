@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 library Digits {
     function length(uint256 value, uint256 radix) internal pure returns (uint256 len) {
-        for (len = 1; value > radix; len += 1) {
-            value /= radix;
+        unchecked {
+            for (len = 1; value > radix; len++) {
+                value /= radix;
+            }
         }
     }
 

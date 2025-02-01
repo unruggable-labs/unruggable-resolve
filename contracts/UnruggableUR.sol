@@ -11,7 +11,7 @@ import {ENSDNSCoder} from "./ENSDNSCoder.sol";
 import {SafeDecoder} from "./SafeDecoder.sol";
 import {COIN_TYPE_ETH} from "./Constants.sol";
 
-contract HumanUR is URCaller {
+contract UnruggableUR is URCaller {
     constructor(address ur) URCaller(ur) {}
 
     function resolve(
@@ -66,7 +66,7 @@ contract HumanUR is URCaller {
         for (uint256 i; i < textCount; i++) {
             Response memory r = res[pos++];
             if ((r.bits & ResponseBits.ERROR) == 0) {
-                texts[i] = abi.decode(r.data, (string));
+                texts[i] = string(SafeDecoder.decodeBytes(r.data));
             }
         }
         for (uint256 i; i < addrCount; i++) {
@@ -76,7 +76,7 @@ contract HumanUR is URCaller {
             }
         }
         if (useContenthash && (res[pos].bits & ResponseBits.ERROR) == 0) {
-            contenthash = abi.decode(res[pos].data, (bytes));
+            contenthash = SafeDecoder.decodeBytes(res[pos].data);
         }
     }
 }

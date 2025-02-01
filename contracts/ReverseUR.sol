@@ -26,7 +26,7 @@ contract ReverseUR is URCaller {
         }
     }
 
-    function reverseName(bytes memory addr, uint256 coinType) public pure returns (string memory) {
+    function reverseName(bytes memory addr, uint256 coinType) external pure returns (string memory) {
         return ReverseName.from(addr, coinType);
     }
 
