@@ -122,7 +122,9 @@ describe("ReverseUR", async () => {
 		expect(reverse(B_ADDR, coinTypeFromChain(BASE))).resolves.toMatchObject(
 			{
 				rev: {
-					dns: dnsEncode(reverseName(B_ADDR, EVM_BIT)),
+					dns: dnsEncode(
+						reverseName(B_ADDR, coinTypeFromChain(EVM_BIT))
+					),
 					extended: true,
 				},
 				fwd: {

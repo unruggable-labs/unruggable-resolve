@@ -61,7 +61,7 @@ contract UR is IUR, IERC165 {
             bytes memory call = _injectNode(calls[i], lookup.node);
             (bool ok, bytes memory v) = _callResolver(lookup, call);
             Response memory r = res[i];
-            r.call = call;
+            r.call = call; // remember calldata (post-inject, pre-resolve)
             r.data = v;
             if (!ok && bytes4(v) == OffchainLookup.selector) {
                 r.bits |= ResponseBits.OFFCHAIN | ResponseBits.BATCHED;
@@ -160,15 +160,14 @@ contract UR is IUR, IERC165 {
             if ((res[0].bits & ResponseBits.ERROR) != 0) {
                 _revertOffchain(lookup, alt, new Response[](0), batchedGateways); // try separate
             } else {
-                _decodeMulticall(alt, res[0].data);
+                _decodeMulticall(res[0].data, alt);
                 res = alt;
             }
         }
     }
 
     // utils
-
-    function _decodeMulticall(Response[] memory res, bytes memory encoded) internal pure {
+    function _decodeMulticall(bytes memory encoded, Response[] memory res) internal pure {
         bytes[] memory m = abi.decode(encoded, (bytes[]));
         uint256 expected;
         for (uint256 i; i < res.length; i++) {
@@ -184,14 +183,14 @@ contract UR is IUR, IERC165 {
     }
 
     function _injectNode(bytes memory v, bytes32 node) internal pure returns (bytes memory) {
-        bool x;
+        bytes32 node0;
         assembly {
-            x := iszero(mload(add(v, 36)))
+            node0 := mload(add(v, 36)) // old node
         }
-        if (x) {
-            v = abi.encodePacked(v);
+        if (node0 == bytes32(0)) {
+            v = abi.encodePacked(v); // make copy
             assembly {
-                mstore(add(v, 36), node)
+                mstore(add(v, 36), node) // inject new node
             }
         }
         return v;

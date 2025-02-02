@@ -10,9 +10,9 @@ remappings = [
 	'@ensdomains/ens-contracts=lib/ens-contracts/',
 	'@ensdomains/buffer=lib/buffer'
 ]
-# forge install ensdomains/ens-contracts
-# forge install OpenZeppelin/openzeppelin-contracts
-# forge install foundry-rs/forge-std
+# forge i ensdomains/ens-contracts
+# forge i OpenZeppelin/openzeppelin-contracts
+# forge i foundry-rs/forge-std
 
 [profile.dist]
 test = "contracts" # disables tests
