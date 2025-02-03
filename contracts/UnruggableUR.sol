@@ -7,12 +7,16 @@ import {IAddrResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profi
 import {IContentHashResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IContentHashResolver.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
 import {URCaller} from "./URCaller.sol";
-import {ENSDNSCoder} from "./ENSDNSCoder.sol";
+import {DNSCoder} from "./DNSCoder.sol";
 import {SafeDecoder} from "./SafeDecoder.sol";
 import {COIN_TYPE_ETH} from "./Constants.sol";
 
 contract UnruggableUR is URCaller {
-    constructor(address ur) URCaller(ur) {}
+    IUR public immutable ur;
+
+    constructor(address _ur) URCaller() {
+        ur = IUR(_ur);
+    }
 
     function resolve(
         string memory name,
@@ -25,23 +29,26 @@ contract UnruggableUR is URCaller {
         view
         returns (Lookup memory lookup, string[] memory texts, bytes[] memory addrs, bytes memory contenthash)
     {
-        lookup = ur.lookupName(ENSDNSCoder.dnsEncode(name));
+        lookup = ur.lookupName(DNSCoder.encode(name));
         if (lookup.resolver == address(0)) return (lookup, texts, addrs, contenthash);
         bytes[] memory calls = new bytes[](keys.length + coins.length + (useContenthash ? 1 : 0));
-        uint256 pos;
-        for (uint256 i; i < keys.length; i++) {
-            calls[pos++] = abi.encodeCall(ITextResolver.text, (0, keys[i]));
-        }
-        for (uint256 i; i < coins.length; i++) {
-            uint256 coinType = coins[i];
-            calls[pos++] = coinType == COIN_TYPE_ETH
-                ? abi.encodeCall(IAddrResolver.addr, (0))
-                : abi.encodeCall(IAddressResolver.addr, (0, coinType));
-        }
-        if (useContenthash) {
-            calls[pos++] = abi.encodeCall(IContentHashResolver.contenthash, (0));
+        {
+            uint256 pos;
+            for (uint256 i; i < keys.length; i++) {
+                calls[pos++] = abi.encodeCall(ITextResolver.text, (0, keys[i]));
+            }
+            for (uint256 i; i < coins.length; i++) {
+                uint256 coinType = coins[i];
+                calls[pos++] = coinType == COIN_TYPE_ETH
+                    ? abi.encodeCall(IAddrResolver.addr, (0))
+                    : abi.encodeCall(IAddressResolver.addr, (0, coinType));
+            }
+            if (useContenthash) {
+                calls[pos++] = abi.encodeCall(IContentHashResolver.contenthash, (0));
+            }
         }
         bytes memory v = callResolve(
+            ur,
             lookup.dns,
             calls,
             gateways,

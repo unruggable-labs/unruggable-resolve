@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ENSDNSCoder} from "../contracts/ENSDNSCoder.sol";
+import {DNSCoder} from "../contracts/DNSCoder.sol";
 import "forge-std/Test.sol";
 
 contract TestENSDNSCoder is Test {
@@ -21,7 +21,7 @@ contract TestENSDNSCoder is Test {
         _testValid("a.bb.ccc.dddd.eeeee.ffffff", hex"01610262620363636304646464640565656565650666666666666600");
     }
 
-    function test_emptyLabel() external {
+    function test_emptyLabel() external pure {
         _testInvalidENS(".");
         _testInvalidENS("..");
         _testInvalidENS("a.");
@@ -29,17 +29,17 @@ contract TestENSDNSCoder is Test {
         _testInvalidENS("a..b");
     }
 
-    function test_largeLabel() external {
+    function test_largeLabel() external pure {
         bytes memory a = bytes("a");
         while (a.length < 256) a = bytes.concat(a, a);
         _testInvalidENS(string(a));
     }
 
-    function test_stoppedLabel() external {
+    function test_stoppedLabel() external pure {
         _testInvalidDNS(bytes("\x03a.b\x00"));
     }
 
-    function test_wrongEncoding() external {
+    function test_wrongEncoding() external pure {
         _testInvalidDNS(hex"");
         _testInvalidDNS(hex"02");
         _testInvalidDNS(hex"0000");
@@ -47,17 +47,17 @@ contract TestENSDNSCoder is Test {
     }
 
     function _testValid(string memory ens, bytes memory dns) internal pure {
-        assertEq(ENSDNSCoder.dnsDecode(dns), ens);
-        assertEq(ENSDNSCoder.dnsEncode(ens), dns);
+        assertEq(DNSCoder.decode(dns), ens);
+        assertEq(DNSCoder.encode(ens), dns);
     }
 
-    function _testInvalidENS(string memory ens) internal {
-        vm.expectRevert();
-        ENSDNSCoder.dnsEncode(ens);
+    function _testInvalidENS(string memory ens) internal pure {
+        (bool ok,) = DNSCoder.tryEncode(ens);
+        assertEq(ok, false);
     }
 
-    function _testInvalidDNS(bytes memory dns) internal {
-        vm.expectRevert();
-        ENSDNSCoder.dnsDecode(dns);
+    function _testInvalidDNS(bytes memory dns) internal pure {
+        (bool ok,) = DNSCoder.tryDecode(dns);
+        assertEq(ok, false);
     }
 }

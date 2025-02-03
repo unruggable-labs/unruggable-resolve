@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {BytesUtils} from "@ensdomains/ens-contracts/contracts/utils/BytesUtils.sol";
 import {INameResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/INameResolver.sol";
 import {IAddressResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddressResolver.sol";
 import {IAddrResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddrResolver.sol";
+import {IReverseUR} from "./IReverseUR.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
 import {URCaller} from "./URCaller.sol";
 import {ReverseName} from "./ReverseName.sol";
-import {ENSDNSCoder} from "./ENSDNSCoder.sol";
+import {DNSCoder} from "./DNSCoder.sol";
 import {SafeDecoder} from "./SafeDecoder.sol";
 import {EVM_BIT, COIN_TYPE_ETH} from "./Constants.sol";
 
-contract ReverseUR is URCaller {
-    constructor(address ur) URCaller(ur) {}
+contract ReverseUR is IReverseUR, URCaller {
+    IUR public immutable ur;
+
+    constructor(address _ur) {
+        ur = IUR(_ur);
+    }
 
     function reverse(bytes memory addr, uint256 coinType, string[] memory batchedGateways)
         external
@@ -39,15 +43,16 @@ contract ReverseUR is URCaller {
         bytes[] memory calls = new bytes[](1);
         calls[0] = abi.encodeCall(INameResolver.name, (0));
         return callResolve(
-            ENSDNSCoder.dnsEncode(name),
+            ur,
+            DNSCoder.encode(name),
             calls,
             batchedGateways,
             this.reverseCallback1.selector,
-            abi.encode(Reverse1(addr, coinType, coinType0, batchedGateways))
+            abi.encode(ReverseCarry(addr, coinType, coinType0, batchedGateways))
         );
     }
 
-    struct Reverse1 {
+    struct ReverseCarry {
         bytes addr;
         uint256 coinType;
         uint256 coinType0;
@@ -59,7 +64,7 @@ contract ReverseUR is URCaller {
         view
         returns (Lookup memory, Lookup memory nul, bytes memory v)
     {
-        Reverse1 memory state = abi.decode(carry, (Reverse1));
+        ReverseCarry memory state = abi.decode(carry, (ReverseCarry));
         bytes memory primary;
         if (lookup.resolver != address(0) && (res[0].bits & ResponseBits.ERROR) == 0) {
             primary = SafeDecoder.decodeBytes(res[0].data);
@@ -69,11 +74,12 @@ contract ReverseUR is URCaller {
             v = _lookupPrimary(state.addr, EVM_BIT, state.coinType0, state.batchedGateways);
         } else {
             v = callResolve(
-                ENSDNSCoder.dnsEncode(string(primary)),
+                ur,
+                DNSCoder.encode(string(primary)),
                 _makeCalls(state.coinType0, state.coinType == EVM_BIT && state.coinType0 != EVM_BIT),
                 state.batchedGateways,
                 this.reverseCallback2.selector,
-                abi.encode(Reverse2(state.addr, state.coinType, state.batchedGateways, lookup))
+                abi.encode(lookup)
             );
         }
         assembly {
@@ -92,20 +98,12 @@ contract ReverseUR is URCaller {
         }
     }
 
-    struct Reverse2 {
-        bytes addr;
-        uint256 coinType;
-        string[] batchedGateways;
-        Lookup rev;
-    }
-
     function reverseCallback2(Lookup calldata lookup, Response[] calldata res, bytes memory carry)
         external
         pure
         returns (Lookup memory rev, Lookup memory fwd, bytes memory answer)
     {
-        Reverse2 memory state = abi.decode(carry, (Reverse2));
-        rev = state.rev;
+        rev = abi.decode(carry, (Lookup));
         fwd = lookup;
         if (fwd.resolver != address(0)) {
             for (uint256 i; i < res.length; i++) {

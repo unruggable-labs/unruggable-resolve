@@ -9,7 +9,7 @@ import {
 	type Contract,
 } from "ethers";
 
-const ABI = new Interface([
+export const RESOLVER_ABI = new Interface([
 	"function addr(bytes32) external view returns (address)",
 	"function addr(bytes32, uint256 coinType) external view returns (bytes)",
 	"function text(bytes32, string key) external view returns (string)",
@@ -17,6 +17,7 @@ const ABI = new Interface([
 	"function name(bytes32) external view returns (string)",
 	"function pubkey(bytes32) external view returns (bytes32 x, bytes32 y)",
 	"function dne(bytes32) external view returns (string)", // not a real ENS profile
+	"function multicall(bytes[] calls) external view returns (bytes[])",
 ]);
 
 const BATCHED_ABI = new Interface([
@@ -28,7 +29,7 @@ type BatchedHTTPError = [code: bigint, message: string];
 export type ENSRecord =
 	| ["addr", arg?: BigNumberish]
 	| ["text", arg: string]
-	| ["contenthash" | "pubkey" | "name" | "dne"]
+	| ["contenthash" | "pubkey" | "name" | "dne"];
 
 export type URLookup = {
 	dns: string;
@@ -53,7 +54,7 @@ type ParsedURResponse = {
 };
 
 function fragFromRecord([type, arg]: ENSRecord) {
-	const frag = ABI.getFunction(
+	const frag = RESOLVER_ABI.getFunction(
 		type === "addr"
 			? arg === undefined
 				? "addr(bytes32)"
@@ -80,7 +81,7 @@ export function createResolve(UR: Contract) {
 			dnsname,
 			records.map((record) => {
 				const arg = record[1];
-				return ABI.encodeFunctionData(
+				return RESOLVER_ABI.encodeFunctionData(
 					fragFromRecord(record),
 					arg === undefined ? [node] : [node, arg]
 				);
@@ -114,7 +115,7 @@ export function createResolve(UR: Contract) {
 				};
 				if (!error) {
 					try {
-						ret.result = ABI.decodeFunctionResult(
+						ret.result = RESOLVER_ABI.decodeFunctionResult(
 							frag,
 							data
 						).toArray();

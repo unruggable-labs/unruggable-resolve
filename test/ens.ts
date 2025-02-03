@@ -28,7 +28,7 @@ export function labelFromAddress(address: string) {
 	return address.slice(2).toLowerCase();
 }
 
-export function reverseName(address: string, coinType: bigint) {
+export function reverseName(address: string, coinType = 60n) {
 	return labelFromAddress(address) + "." + suffixFromCoinType(coinType);
 }
 

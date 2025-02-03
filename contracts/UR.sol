@@ -11,16 +11,12 @@ import {IResolveMulticall} from "./IResolveMulticall.sol";
 import {IUR, Lookup, Response, ResponseBits, LengthMismatch} from "./IUR.sol";
 
 contract UR is IUR, IERC165 {
-    ENS immutable _ens;
-    string[] public gateways;
+    address public immutable registry;
+    string[] public batchedGateways;
 
-    constructor(ENS ens, string[] memory batchedGateways) {
-        _ens = ens;
-        gateways = batchedGateways;
-    }
-
-    function registry() external view returns (address) {
-        return address(_ens);
+    constructor(address ens, string[] memory gateways) {
+        registry = ens;
+        batchedGateways = gateways;
     }
 
     function supportsInterface(bytes4 x) external pure returns (bool) {
@@ -32,7 +28,7 @@ contract UR is IUR, IERC165 {
         lookup.dns = dns;
         lookup.node = lookup.basenode = BytesUtils.namehash(dns, 0);
         while (true) {
-            lookup.resolver = _ens.resolver(lookup.basenode);
+            lookup.resolver = ENS(registry).resolver(lookup.basenode);
             if (lookup.resolver != address(0)) break;
             uint256 len = uint8(dns[lookup.offset]);
             if (len == 0) return lookup;
@@ -46,7 +42,7 @@ contract UR is IUR, IERC165 {
         }
     }
 
-    function resolve(bytes memory dns, bytes[] memory calls, string[] memory batchedGateways)
+    function resolve(bytes memory dns, bytes[] memory calls, string[] memory gateways)
         external
         view
         returns (Lookup memory lookup, Response[] memory res)
@@ -54,7 +50,7 @@ contract UR is IUR, IERC165 {
         lookup = lookupName(dns);
         if (lookup.resolver == address(0)) return (lookup, res);
         res = new Response[](calls.length); // create result storage
-        if (batchedGateways.length == 0) batchedGateways = gateways; // use default
+        if (gateways.length == 0) gateways = batchedGateways; // use default
         bytes[] memory offchainCalls = new bytes[](calls.length);
         uint256 offchain; // count how many offchain
         for (uint256 i; i < res.length; i++) {
@@ -80,10 +76,10 @@ contract UR is IUR, IERC165 {
             if (!ok && bytes4(v) == OffchainLookup.selector) {
                 Response[] memory multi = new Response[](1);
                 multi[0].data = v;
-                _revertOffchain(lookup, multi, res, batchedGateways);
+                _revertOffchain(lookup, multi, res, gateways);
             }
         }
-        _revertOffchain(lookup, res, new Response[](0), batchedGateways);
+        _revertOffchain(lookup, res, new Response[](0), gateways);
     }
 
     function _callResolver(Lookup memory lookup, bytes memory call) internal view returns (bool ok, bytes memory v) {
@@ -96,7 +92,7 @@ contract UR is IUR, IERC165 {
         Lookup memory lookup,
         Response[] memory res,
         Response[] memory alt,
-        string[] memory batchedGateways
+        string[] memory gateways
     ) internal view {
         BatchedGatewayQuery[] memory queries = new BatchedGatewayQuery[](res.length);
         uint256 missing;
@@ -113,10 +109,10 @@ contract UR is IUR, IERC165 {
             }
             revert OffchainLookup(
                 address(this),
-                batchedGateways,
+                gateways,
                 abi.encodeCall(IBatchedGateway.query, (queries)),
                 this.resolveCallback.selector,
-                abi.encode(lookup, res, alt, batchedGateways) // batchedCarry
+                abi.encode(lookup, res, alt, gateways) // batchedCarry
             );
         }
     }
@@ -127,8 +123,8 @@ contract UR is IUR, IERC165 {
         returns (Lookup memory lookup, Response[] memory res)
     {
         Response[] memory alt;
-        string[] memory batchedGateways;
-        (lookup, res, alt, batchedGateways) = abi.decode(batchedCarry, (Lookup, Response[], Response[], string[]));
+        string[] memory gateways;
+        (lookup, res, alt, gateways) = abi.decode(batchedCarry, (Lookup, Response[], Response[], string[]));
         (bool[] memory failures, bytes[] memory responses) = abi.decode(ccip, (bool[], bytes[]));
         if (failures.length != responses.length) revert LengthMismatch();
         uint256 expected;
@@ -155,10 +151,10 @@ contract UR is IUR, IERC165 {
             }
         }
         if (expected != responses.length) revert LengthMismatch();
-        _revertOffchain(lookup, res, alt, batchedGateways);
+        _revertOffchain(lookup, res, alt, gateways);
         if (alt.length > 0) {
             if ((res[0].bits & ResponseBits.ERROR) != 0) {
-                _revertOffchain(lookup, alt, new Response[](0), batchedGateways); // try separate
+                _revertOffchain(lookup, alt, new Response[](0), gateways); // try separate
             } else {
                 _decodeMulticall(res[0].data, alt);
                 res = alt;

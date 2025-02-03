@@ -1,3 +1,5 @@
+// TODO: fix me
+
 import { Foundry } from "@adraffy/blocksmith";
 import { deployUR } from "./tests.js";
 
@@ -25,7 +27,5 @@ console.log(
 		}
 	)
 );
-
-// TODO: fix me
 
 await foundry.shutdown();

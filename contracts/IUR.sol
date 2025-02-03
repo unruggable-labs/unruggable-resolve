@@ -26,6 +26,7 @@ library ResponseBits {
 error LengthMismatch();
 
 interface IUR {
+	function registry() external view returns (address);
     function lookupName(bytes memory dns) external view returns (Lookup memory lookup);
     function resolve(bytes memory dns, bytes[] memory calls, string[] memory batchedGateways)
         external

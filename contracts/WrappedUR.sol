@@ -5,7 +5,11 @@ import {IUR, Lookup, Response} from "./IUR.sol";
 import {URCaller} from "./URCaller.sol";
 
 contract WrappedUR is URCaller {
-    constructor(address ur) URCaller(ur) {}
+    IUR public immutable ur;
+
+    constructor(address _ur) {
+        ur = IUR(_ur);
+    }
 
     function resolve(bytes memory dns, bytes[] memory calls, string[] memory gateways)
         external
@@ -15,7 +19,7 @@ contract WrappedUR is URCaller {
         lookup = ur.lookupName(dns);
         if (lookup.resolver == address(0)) return (lookup, res);
         // extra logic goes here
-        bytes memory v = callResolve(dns, calls, gateways, this.resolveCallback.selector, "");
+        bytes memory v = callResolve(ur, dns, calls, gateways, this.resolveCallback.selector, "");
         assembly {
             return(add(v, 32), mload(v))
         }

@@ -5,13 +5,9 @@ import {CCIPReader} from "./CCIPReader.sol";
 import {IUR, Lookup, Response} from "./IUR.sol";
 
 contract URCaller is CCIPReader {
-    IUR public immutable ur;
-
-    constructor(address ur_) {
-        ur = IUR(ur_);
-    }
 
     function callResolve(
+		IUR ur,
         bytes memory dns,
         bytes[] memory calls,
         string[] memory gateways,

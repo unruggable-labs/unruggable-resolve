@@ -19,3 +19,6 @@ A repository of contracts including:
 * [**ENSDNSCoder.sol**](./contracts/ENSDNSCoder.sol) &mdash; convert between ENS (`"raffy.eth"`) and DNS-Encoded (`0x0572616666790365746800`)
 * [**ReverseName.sol**](./contracts/ReverseName.sol) &mdash; generate multichain address reverse names (`"0x51050ec063d393217B436747617aD1C2285Aeeee" + CoinType(0x80000000)` &rarr; `"51050ec063d393217b436747617ad1c2285aeeee.default.reverse"`)
 
+### Notes
+
+* `BytesUtils.namehash()` doesn't support encoded labels
