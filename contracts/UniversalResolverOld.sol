@@ -5,9 +5,9 @@ pragma solidity ^0.8.0;
 
 import {INameResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/INameResolver.sol";
 import {IAddrResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddrResolver.sol";
+import {CCIPReader} from "@unruggable/CCIPReader.sol/contracts/CCIPReader.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
 import {IReverseUR} from "./IReverseUR.sol";
-import {URCaller} from "./URCaller.sol";
 import {DNSCoder} from "./DNSCoder.sol";
 
 struct Result {
@@ -15,11 +15,11 @@ struct Result {
     bytes returnData;
 }
 
-contract UniversalResolverOld is URCaller {
+contract UniversalResolverOld is CCIPReader {
     IUR public immutable ur;
 
-    constructor(address _ur) {
-        ur = IUR(_ur);
+    constructor(IUR _ur) {
+        ur = _ur;
     }
 
     function registry() external view returns (address) {
@@ -41,7 +41,9 @@ contract UniversalResolverOld is URCaller {
     {
         bytes[] memory calls = new bytes[](1);
         calls[0] = data;
-        bytes memory v = callResolve(ur, name, calls, gateways, this.resolveCallbackSingle.selector, "");
+        bytes memory v = ccipRead(
+            address(ur), abi.encodeCall(IUR.resolve, (name, calls, gateways)), this.resolveCallbackSingle.selector, ""
+        );
         assembly {
             return(add(v, 32), mload(v))
         }
@@ -52,26 +54,30 @@ contract UniversalResolverOld is URCaller {
         view
         returns (Result[] memory, address)
     {
-        bytes memory v = callResolve(ur, name, data, gateways, this.resolveCallbackMany.selector, "");
+        bytes memory v = ccipRead(
+            address(ur), abi.encodeCall(IUR.resolve, (name, data, gateways)), this.resolveCallbackMany.selector, ""
+        );
         assembly {
             return(add(v, 32), mload(v))
         }
     }
 
-    function resolveCallbackSingle(Lookup memory lookup, Response[] memory res, bytes memory)
+    function resolveCallbackSingle(bytes calldata ccip, bytes calldata)
         external
         pure
         returns (bytes memory answer, address resolver)
     {
+        (Lookup memory lookup, Response[] memory res) = abi.decode(ccip, (Lookup, Response[]));
         answer = _extractRecord(res[0]);
         resolver = lookup.resolver;
     }
 
-    function resolveCallbackMany(Lookup memory lookup, Response[] memory res, bytes memory)
+    function resolveCallbackMany(bytes calldata ccip, bytes calldata)
         external
         pure
         returns (Result[] memory answers, address resolver)
     {
+        (Lookup memory lookup, Response[] memory res) = abi.decode(ccip, (Lookup, Response[]));
         answers = new Result[](res.length);
         for (uint256 i; i < res.length; i++) {
             answers[i] = Result({success: (res[i].bits & ResponseBits.ERROR) == 0, returnData: res[i].data});
@@ -101,27 +107,30 @@ contract UniversalResolverOld is URCaller {
     {
         bytes[] memory calls = new bytes[](1);
         calls[0] = abi.encodeCall(INameResolver.name, (0));
-        bytes memory v =
-            callResolve(ur, reverseName, calls, gateways, this.reverseCallback1.selector, abi.encode(gateways));
+        bytes memory v = ccipRead(
+            address(ur),
+            abi.encodeCall(IUR.resolve, (reverseName, calls, gateways)),
+            this.reverseCallback1.selector,
+            abi.encode(gateways)
+        );
         assembly {
             return(add(v, 32), mload(v))
         }
     }
 
-    function reverseCallback1(Lookup memory lookup, Response[] memory res, bytes memory carry)
+    function reverseCallback1(bytes calldata ccip, bytes calldata carry)
         external
         view
         returns (string memory, address, address, address)
     {
+        (Lookup memory lookup, Response[] memory res) = abi.decode(ccip, (Lookup, Response[]));
         string memory primary = abi.decode(_extractRecord(res[0]), (string));
         if (bytes(primary).length == 0) return ("", address(0), lookup.resolver, address(0));
         bytes[] memory calls = new bytes[](1);
         calls[0] = abi.encodeCall(IAddrResolver.addr, (0));
-        bytes memory v = callResolve(
-            ur,
-            DNSCoder.encode(primary),
-            calls,
-            abi.decode(carry, (string[])),
+        bytes memory v = ccipRead(
+            address(ur),
+            abi.encodeCall(IUR.resolve, (DNSCoder.encode(primary), calls, abi.decode(carry, (string[])))),
             this.reverseCallback2.selector,
             abi.encode(lookup.resolver, primary)
         );
@@ -130,11 +139,12 @@ contract UniversalResolverOld is URCaller {
         }
     }
 
-    function reverseCallback2(Lookup memory lookup, Response[] memory res, bytes memory carry)
+    function reverseCallback2(bytes calldata ccip, bytes calldata carry)
         external
         pure
         returns (string memory primary, address addr, address revResolver, address fwdResolver)
     {
+        (Lookup memory lookup, Response[] memory res) = abi.decode(ccip, (Lookup, Response[]));
         addr = abi.decode(_extractRecord(res[0]), (address));
         (revResolver, primary) = abi.decode(carry, (address, string));
         fwdResolver = lookup.resolver;

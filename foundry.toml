@@ -6,13 +6,16 @@ libs = ["lib"]
 solc_version = "0.8.27"
 optimizer = true
 remappings = [
-	'@openzeppelin/contracts=lib/openzeppelin-contracts/contracts/',
-	'@ensdomains/ens-contracts=lib/ens-contracts/',
-	'@ensdomains/buffer=lib/buffer'
+	'@openzeppelin/contracts=lib/openzeppelin-contracts/contracts',
+	'@ensdomains/ens-contracts=lib/ens-contracts',
+	'@ensdomains/buffer=lib/buffer',
+	'@unruggable/CCIPReader.sol=lib/CCIPReader.sol',
 ]
+
+# forge i foundry-rs/forge-std
 # forge i ensdomains/ens-contracts
 # forge i OpenZeppelin/openzeppelin-contracts
-# forge i foundry-rs/forge-std
+# forge i unruggable-labs/CCIPReader.sol
 
 [profile.dist]
 test = "contracts" # disables tests

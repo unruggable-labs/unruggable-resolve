@@ -5,17 +5,17 @@ import {ITextResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profi
 import {IAddressResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddressResolver.sol";
 import {IAddrResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddrResolver.sol";
 import {IContentHashResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IContentHashResolver.sol";
+import {CCIPReader} from "@unruggable/CCIPReader.sol/contracts/CCIPReader.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
-import {URCaller} from "./URCaller.sol";
 import {DNSCoder} from "./DNSCoder.sol";
 import {SafeDecoder} from "./SafeDecoder.sol";
 import {COIN_TYPE_ETH} from "./Constants.sol";
 
-contract UnruggableUR is URCaller {
+contract UnruggableUR is CCIPReader {
     IUR public immutable ur;
 
-    constructor(address _ur) URCaller() {
-        ur = IUR(_ur);
+    constructor(IUR _ur) {
+        ur = _ur;
     }
 
     function resolve(
@@ -47,11 +47,9 @@ contract UnruggableUR is URCaller {
                 calls[pos++] = abi.encodeCall(IContentHashResolver.contenthash, (0));
             }
         }
-        bytes memory v = callResolve(
-            ur,
-            lookup.dns,
-            calls,
-            gateways,
+        bytes memory v = ccipRead(
+            address(ur),
+            abi.encodeCall(IUR.resolve, (lookup.dns, calls, gateways)),
             this.resolveCallback.selector,
             abi.encode(keys.length, coins.length, useContenthash)
         );
@@ -60,12 +58,13 @@ contract UnruggableUR is URCaller {
         }
     }
 
-    function resolveCallback(Lookup memory lookup, Response[] memory res, bytes memory carry)
+    function resolveCallback(bytes calldata ccip, bytes calldata carry)
         external
         pure
-        returns (Lookup memory lookup_, string[] memory texts, bytes[] memory addrs, bytes memory contenthash)
+        returns (Lookup memory lookup, string[] memory texts, bytes[] memory addrs, bytes memory contenthash)
     {
-        lookup_ = lookup;
+        Response[] memory res;
+        (lookup, res) = abi.decode(ccip, (Lookup, Response[]));
         (uint256 textCount, uint256 addrCount, bool useContenthash) = abi.decode(carry, (uint256, uint256, bool));
         texts = new string[](textCount);
         addrs = new bytes[](addrCount);

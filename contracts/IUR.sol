@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 struct Lookup {
-    bytes dns;
+    bytes dns; // dns-encoded name (safe to decode)
     uint256 offset; // byte offset into dns for basename
     bytes32 node; // namehash(dns)
     bytes32 basenode; // namehash(dns.slice(offset))

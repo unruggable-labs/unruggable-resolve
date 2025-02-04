@@ -5,13 +5,17 @@ import {ERC165, IERC165} from "./ERC165.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {IExtendedResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IExtendedResolver.sol";
 import {BytesUtils} from "@ensdomains/ens-contracts/contracts/utils/BytesUtils.sol";
-import {OffchainLookup, OffchainLookupTuple, CCIPReadProtocol} from "./CCIPReadProtocol.sol";
+import {
+    OffchainLookup,
+    OffchainLookupTuple,
+    CCIPReadProtocol
+} from "@unruggable/CCIPReader.sol/contracts/CCIPReadProtocol.sol";
 import {IBatchedGateway, BatchedGatewayQuery} from "./IBatchedGateway.sol";
 import {IResolveMulticall} from "./IResolveMulticall.sol";
 import {IUR, Lookup, Response, ResponseBits, LengthMismatch} from "./IUR.sol";
 
 contract UR is IUR, IERC165 {
-    address public immutable registry;
+    address public immutable registry; // not typed so the header is dependancy-free
     string[] public batchedGateways;
 
     constructor(address ens, string[] memory gateways) {

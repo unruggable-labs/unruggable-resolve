@@ -4,19 +4,19 @@ pragma solidity ^0.8.27;
 import {INameResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/INameResolver.sol";
 import {IAddressResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddressResolver.sol";
 import {IAddrResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IAddrResolver.sol";
+import {CCIPReader} from "@unruggable/CCIPReader.sol/contracts/CCIPReader.sol";
 import {IReverseUR} from "./IReverseUR.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
-import {URCaller} from "./URCaller.sol";
 import {ReverseName} from "./ReverseName.sol";
 import {DNSCoder} from "./DNSCoder.sol";
 import {SafeDecoder} from "./SafeDecoder.sol";
 import {EVM_BIT, COIN_TYPE_ETH} from "./Constants.sol";
 
-contract ReverseUR is IReverseUR, URCaller {
+contract ReverseUR is IReverseUR, CCIPReader {
     IUR public immutable ur;
 
-    constructor(address _ur) {
-        ur = IUR(_ur);
+    constructor(IUR _ur) {
+        ur = _ur;
     }
 
     function reverse(bytes memory addr, uint256 coinType, string[] memory batchedGateways)
@@ -42,11 +42,9 @@ contract ReverseUR is IReverseUR, URCaller {
         string memory name = ReverseName.from(addr, coinType);
         bytes[] memory calls = new bytes[](1);
         calls[0] = abi.encodeCall(INameResolver.name, (0));
-        return callResolve(
-            ur,
-            DNSCoder.encode(name),
-            calls,
-            batchedGateways,
+        return ccipRead(
+            address(ur),
+            abi.encodeCall(IUR.resolve, (DNSCoder.encode(name), calls, batchedGateways)),
             this.reverseCallback1.selector,
             abi.encode(ReverseCarry(addr, coinType, coinType0, batchedGateways))
         );
@@ -59,11 +57,13 @@ contract ReverseUR is IReverseUR, URCaller {
         string[] batchedGateways;
     }
 
-    function reverseCallback1(Lookup memory lookup, Response[] memory res, bytes memory carry)
+    function reverseCallback1(bytes calldata ccip, bytes calldata carry)
         external
         view
-        returns (Lookup memory, Lookup memory nul, bytes memory v)
+        returns (Lookup memory lookup, Lookup memory nul, bytes memory v)
     {
+        Response[] memory res;
+        (lookup, res) = abi.decode(ccip, (Lookup, Response[]));
         ReverseCarry memory state = abi.decode(carry, (ReverseCarry));
         bytes memory primary;
         if (lookup.resolver != address(0) && (res[0].bits & ResponseBits.ERROR) == 0) {
@@ -73,11 +73,16 @@ contract ReverseUR is IReverseUR, URCaller {
             if (!_shouldTryDefault(state.coinType)) return (lookup, nul, "");
             v = _lookupPrimary(state.addr, EVM_BIT, state.coinType0, state.batchedGateways);
         } else {
-            v = callResolve(
-                ur,
-                DNSCoder.encode(string(primary)),
-                _makeCalls(state.coinType0, state.coinType == EVM_BIT && state.coinType0 != EVM_BIT),
-                state.batchedGateways,
+            v = ccipRead(
+                address(ur),
+                abi.encodeCall(
+                    IUR.resolve,
+                    (
+                        DNSCoder.encode(string(primary)),
+                        _makeCalls(state.coinType0, state.coinType == EVM_BIT && state.coinType0 != EVM_BIT),
+                        state.batchedGateways
+                    )
+                ),
                 this.reverseCallback2.selector,
                 abi.encode(lookup)
             );
@@ -98,13 +103,14 @@ contract ReverseUR is IReverseUR, URCaller {
         }
     }
 
-    function reverseCallback2(Lookup calldata lookup, Response[] calldata res, bytes memory carry)
+    function reverseCallback2(bytes calldata ccip, bytes calldata carry)
         external
         pure
         returns (Lookup memory rev, Lookup memory fwd, bytes memory answer)
     {
+        Response[] memory res;
+        (fwd, res) = abi.decode(ccip, (Lookup, Response[]));
         rev = abi.decode(carry, (Lookup));
-        fwd = lookup;
         if (fwd.resolver != address(0)) {
             for (uint256 i; i < res.length; i++) {
                 Response memory r = res[i];

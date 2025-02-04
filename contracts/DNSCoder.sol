@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// example codings:
+// - ens: "aaa.bb.c"
+// - dns: "3aaa2bb1c0"
+
+// observations:
+// - ens.length = dns.length - 2
+// - ens is offset 1-byte with lengths replaced with "."
+
+// WARNING: a label that contains a stop (.) will not round-trip
+// decode("3a.b0) => revert InvalidDNSName
+// encode("a.b") = "1a1b0"
+// decode("1a1b0") = "a.b"
+
 error InvalidDNSName(bytes name);
 error InvalidENSName(string name);
 
 library DNSCoder {
-    // WARNING: a label that contains a stop (.) will not round-trip
-    // dnsDecode("3a.b0) => revert InvalidName
-    // dnsEncode("a.b") = "1a1b0"
-    // dnsDecode("1a1b0") = "a.b"
-
-    // [ens]  "aaa.bb.c"
-    // [dns] "3aaa2bb1c0"
-
-    // ens.length = dns.length - 2
-    // ens is offset 1-byte with lengths replaced with "."
-
     function decode(bytes memory dns) internal pure returns (string memory) {
         (bool ok, string memory ens) = tryDecode(dns);
         if (!ok) revert InvalidDNSName(dns);

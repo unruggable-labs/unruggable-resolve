@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {IUR, Lookup, Response} from "./IUR.sol";
-import {URCaller} from "./URCaller.sol";
+// provided as an example for how to wrap the UR
 
-contract WrappedUR is URCaller {
+import {CCIPReader} from "@unruggable/CCIPReader.sol/contracts/CCIPReader.sol";
+import {IUR, Lookup, Response} from "./IUR.sol";
+
+contract WrappedUR is CCIPReader {
     IUR public immutable ur;
 
-    constructor(address _ur) {
-        ur = IUR(_ur);
+    constructor(IUR _ur) {
+        ur = _ur;
     }
 
     function resolve(bytes memory dns, bytes[] memory calls, string[] memory gateways)
@@ -18,18 +20,24 @@ contract WrappedUR is URCaller {
     {
         lookup = ur.lookupName(dns);
         if (lookup.resolver == address(0)) return (lookup, res);
-        // extra logic goes here
-        bytes memory v = callResolve(ur, dns, calls, gateways, this.resolveCallback.selector, "");
+        //
+        // insert resolver based logic here
+        //
+        bytes memory v = ccipRead(
+            address(ur), abi.encodeCall(IUR.resolve, (dns, calls, gateways)), this.resolveCallback.selector, ""
+        );
         assembly {
             return(add(v, 32), mload(v))
         }
     }
 
-    function resolveCallback(Lookup memory lookup, Response[] memory res, bytes memory /*carry*/ )
+    function resolveCallback(bytes memory ccip, bytes calldata)
         external
         pure
         returns (Lookup memory, Response[] memory)
     {
-        return (lookup, res);
+        assembly {
+            return(add(ccip, 32), mload(ccip)) // exact same return as UR
+        }
     }
 }

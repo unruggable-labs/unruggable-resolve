@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 // equivalent to: https://github.com/ensdomains/ens-contracts/blob/feat/universalresolver-3/contracts/universalResolver/UniversalResolver.sol
 
+import {CCIPReader} from "@unruggable/CCIPReader.sol/contracts/CCIPReader.sol";
 import {IUR, Lookup, Response, ResponseBits} from "./IUR.sol";
 import {IReverseUR} from "./IReverseUR.sol";
-import {CCIPReader} from "./CCIPReader.sol";
 import {IResolveMulticall} from "./IResolveMulticall.sol";
 import {IUniversalResolver} from "./IUniversalResolver.sol";
 import {DNSCoder} from "./DNSCoder.sol";
@@ -13,8 +13,8 @@ import {DNSCoder} from "./DNSCoder.sol";
 contract UniversalResolver is CCIPReader, IUniversalResolver {
     IReverseUR public immutable rr;
 
-    constructor(address _rr) {
-        rr = IReverseUR(_rr);
+    constructor(IReverseUR _rr) {
+        rr = _rr;
     }
 
     function resolve(bytes calldata name, bytes memory data) external view returns (bytes memory, address) {
