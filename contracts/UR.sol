@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import {ERC165, IERC165} from "./ERC165.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {IExtendedResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/IExtendedResolver.sol";
-import {BytesUtils} from "@ensdomains/ens-contracts/contracts/utils/BytesUtils.sol";
 import {
     OffchainLookup,
     OffchainLookupTuple,
@@ -13,6 +12,7 @@ import {
 import {IBatchedGateway, BatchedGatewayQuery} from "./IBatchedGateway.sol";
 import {IResolveMulticall} from "./IResolveMulticall.sol";
 import {IUR, Lookup, Response, ResponseBits, LengthMismatch} from "./IUR.sol";
+import {DNSCoder} from "./DNSCoder.sol";
 
 contract UR is IUR, IERC165 {
     address public immutable registry; // not typed so the header is dependancy-free
@@ -29,21 +29,26 @@ contract UR is IUR, IERC165 {
 
     function lookupName(bytes memory dns) public view returns (Lookup memory lookup) {
         // https://docs.ens.domains/ensip/10
+        uint256 offset;
+        address resolver;
+        (bytes32 node, uint256 next) = DNSCoder.namehash(dns, 0);
         lookup.dns = dns;
-        lookup.node = lookup.basenode = BytesUtils.namehash(dns, 0);
+        lookup.node = node;
         while (true) {
-            lookup.resolver = ENS(registry).resolver(lookup.basenode);
-            if (lookup.resolver != address(0)) break;
-            uint256 len = uint8(dns[lookup.offset]);
-            if (len == 0) return lookup;
-            lookup.offset += 1 + len;
-            lookup.basenode = BytesUtils.namehash(dns, lookup.offset);
+            resolver = ENS(registry).resolver(node);
+            if (resolver != address(0)) break;
+            if (node == bytes32(0)) return lookup; // no match
+            offset = next;
+            (node, next) = DNSCoder.namehash(dns, next);
         }
-        if (ERC165.supportsInterface(lookup.resolver, type(IExtendedResolver).interfaceId)) {
+        if (ERC165.supportsInterface(resolver, type(IExtendedResolver).interfaceId)) {
             lookup.extended = true;
-        } else if (lookup.offset != 0) {
-            lookup.resolver = address(0);
+        } else if (offset != 0) {
+            return lookup; // non-extended resolver requires exact match
         }
+        lookup.resolver = resolver;
+        lookup.basenode = node; // node of resolver
+        lookup.offset = offset;
     }
 
     function resolve(bytes memory dns, bytes[] memory calls, string[] memory gateways)
@@ -64,6 +69,7 @@ contract UR is IUR, IERC165 {
             r.call = call; // remember calldata (post-inject, pre-resolve)
             r.data = v;
             if (!ok && bytes4(v) == OffchainLookup.selector) {
+                // note: until ERC-3668 is fixed, all offchain are batched
                 r.bits |= ResponseBits.OFFCHAIN | ResponseBits.BATCHED;
                 offchainCalls[offchain++] = call;
             } else {
@@ -121,7 +127,7 @@ contract UR is IUR, IERC165 {
         }
     }
 
-    function resolveCallback(bytes memory ccip, bytes memory batchedCarry)
+    function resolveCallback(bytes calldata ccip, bytes calldata batchedCarry)
         external
         view
         returns (Lookup memory lookup, Response[] memory res)
